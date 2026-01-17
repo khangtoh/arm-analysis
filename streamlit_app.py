@@ -1,4 +1,6 @@
 import datetime
+import json
+from pathlib import Path
 from typing import List
 
 import pandas as pd
@@ -59,9 +61,21 @@ def plot_with_events_figure(close: pd.Series, events: List, title: str) -> go.Fi
     return fig
 
 
+def load_app_version(path: Path) -> str:
+    if not path.exists():
+        return "unknown"
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return "unknown"
+    return str(data.get("version", "unknown"))
+
+
 def main() -> None:
     st.set_page_config(page_title="ARM AI/GPU Timeline Overlay", layout="wide")
     st.title("ARM AI/GPU Timeline Overlay")
+    app_version = load_app_version(Path("product-development/app_version.json"))
+    st.caption(f"App version: {app_version}")
     st.write(
         "Explore how ARM's price action aligns with key AI/GPU narrative milestones. "
         "Adjust the date range and event window to update the overlay and returns table."

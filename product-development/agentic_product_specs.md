@@ -4,6 +4,13 @@ This directory contains high-level, human-readable product specifications intend
 use by coding agents (including but not limited to Codex). These specs are structured
 as EPICs with bullet-point stories to guide implementation work.
 
+To ensure a new coding agent knows **which EPIC and stories to work on**, reference
+the execution queue in `product-development/agentic_work_index.md`, which is generated
+from the machine-readable database in `product-development/agentic_work_index.yaml`.
+That source of truth lists the currently active EPIC, story priorities, owners, and
+acceptance criteria for the next batch of work, plus concurrency limits for
+multi-agent execution.
+
 ---
 
 ## EPIC 1 — Event Intelligence & Curation
