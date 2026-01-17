@@ -1,8 +1,8 @@
 import datetime
 from typing import List
 
-import matplotlib.pyplot as plt
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from scripts.arm_ai_timeline_overlay import (
@@ -19,32 +19,43 @@ def load_prices(ticker: str, start: str, end: str) -> pd.Series:
     return prices["Close"].dropna()
 
 
-def plot_with_events_figure(close: pd.Series, events: List, title: str) -> plt.Figure:
+def plot_with_events_figure(close: pd.Series, events: List, title: str) -> go.Figure:
     idx = close.index
     y_top = close.max() * 0.96
 
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.plot(idx, close.values, linewidth=2, label="Close")
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=idx,
+            y=close.values,
+            mode="lines",
+            line=dict(width=2),
+            name="Close",
+        )
+    )
 
     for ev in events:
         ev_date = pd.to_datetime(ev.date)
         t0 = nearest_trading_day_index(idx, ev_date)
-        ax.axvline(t0, linestyle="--", alpha=0.6)
-        ax.text(
-            t0,
-            y_top,
-            f"{ev.label}\n({t0.date().isoformat()})",
-            rotation=90,
-            fontsize=8,
-            va="top",
-            ha="right",
+        fig.add_vline(x=t0, line_dash="dash", opacity=0.6)
+        fig.add_annotation(
+            x=t0,
+            y=y_top,
+            text=f"{ev.label}<br>({t0.date().isoformat()})",
+            textangle=-90,
+            showarrow=False,
+            xanchor="right",
+            yanchor="top",
+            font=dict(size=10),
         )
 
-    ax.set_title(title)
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price (USD)")
-    ax.legend()
-    fig.tight_layout()
+    fig.update_layout(
+        title=title,
+        xaxis_title="Date",
+        yaxis_title="Price (USD)",
+        hovermode="x unified",
+        margin=dict(l=40, r=40, t=60, b=40),
+    )
     return fig
 
 
@@ -85,7 +96,7 @@ def main() -> None:
         returns = compute_event_returns(close, events, window=int(window))
 
     st.subheader("Timeline overlay")
-    st.pyplot(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Event-window returns")
     st.dataframe(returns, use_container_width=True)
