@@ -1,0 +1,71 @@
+version: 1
+product_version:
+  current: "v0.1.0"
+  git_tag: "product/v0.1.0"
+concurrency:
+  max_agents_total: 4
+  allow_multi_epic: true
+  notes:
+    - "Use max_agents_total as the global WIP limit for active stories."
+    - "When allow_multi_epic is true, parallel agents may work across EPICs."
+active_epic:
+  id: "EPIC-1"
+  name: "Event Intelligence & Curation"
+  goal: "Enable users to maintain milestone events inside the app with evidence links."
+  owner: "Unassigned"
+  updated: "2024-01-01"
+  git_tag: "epic-active/EPIC-1"
+  agents_allowed: 2
+epics:
+  - id: "EPIC-1"
+    name: "Event Intelligence & Curation"
+    agents_allowed: 2
+  - id: "EPIC-2"
+    name: "Comparative & Benchmarking Views"
+    agents_allowed: 1
+stories:
+  - id: "E1-S1"
+    title: "In-app event editor"
+    status: "ready"
+    priority: "P0"
+    size: "M"
+    acceptance_criteria:
+      - "Users can add/edit/delete events in the UI, with validation for date and label."
+  - id: "E1-S2"
+    title: "Event CSV import/export"
+    status: "ready"
+    priority: "P0"
+    size: "S"
+    acceptance_criteria:
+      - "Users can download current events as CSV and upload to replace/add events."
+  - id: "E1-S3"
+    title: "Event taxonomy tags"
+    status: "ready"
+    priority: "P1"
+    size: "S"
+    acceptance_criteria:
+      - "Events can be tagged by type (earnings, product, regulation, partnership)."
+  - id: "E1-S4"
+    title: "Evidence links per event"
+    status: "ready"
+    priority: "P1"
+    size: "S"
+    acceptance_criteria:
+      - "Each event supports 1+ URLs and shows them in the UI."
+  - id: "E1-S5"
+    title: "Filter by event type"
+    status: "ready"
+    priority: "P1"
+    size: "M"
+    acceptance_criteria:
+      - "Timeline overlay can be filtered to selected event tags."
+render_instructions:
+  output_path: "product-development/agentic_work_index.md"
+  steps:
+    - "Load this YAML file as the source of truth."
+    - "Render the Active EPIC section from active_epic fields."
+    - "Render concurrency limits and per-EPIC agent caps."
+    - "Render the Story Execution Queue as a Markdown table using stories."
+    - "Emit product_version.current and active_epic.git_tag in the Git-native anchors section."
+    - "Write product_version.current to product-development/app_version.json as {\"version\": \"...\"}."
+    - "Keep statuses and acceptance criteria aligned with this YAML."
