@@ -501,6 +501,11 @@ def assign_story(data: Dict, story_id: str, agent_id: Optional[str] = None) -> T
     
     # All checks passed - assign the story
     story['status'] = 'in_progress'
+    if agent_id:
+        story['assigned_to'] = agent_id
+        story['assigned_at'] = datetime.now().isoformat()
+    
+    return True, f"Assigned story {story_id} to {agent_id or 'agent'}"
 
 
 def main():
