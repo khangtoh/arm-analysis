@@ -426,11 +426,14 @@ def check_story_conflicts(data: Dict, changed_files: List[str]) -> ValidationRes
     # Parse diff to find story status changes
     # Look for lines like: -    status: "ready" or +    status: "in_progress"
     import re
-    status_changes = re.findall(r'[-+]\s+status:\s+"(\w+)"', diff)
+    # Only count added lines (+) when checking for stories being set to in_progress
+    # Removed lines (-) represent stories changing FROM a status, not TO a status
+    added_status_changes = re.findall(r'\+\s+status:\s+"(\w+)"', diff)
     
-    if len(status_changes) >= 2:
+    if len(added_status_changes) >= 2:
         # Check if multiple stories are being changed to in_progress
-        in_progress_changes = [s for s in status_changes if s == 'in_progress']
+        # Only count + lines (added), not - lines (removed)
+        in_progress_changes = [s for s in added_status_changes if s == 'in_progress']
         if len(in_progress_changes) > 1:
             warnings.append(
                 f"Multiple stories being set to 'in_progress' ({len(in_progress_changes)}). "
