@@ -248,6 +248,39 @@ class TestValidateWorkIndex:
         assert result.is_valid is True  # Warning, not error
         assert len(result.warnings) > 0
         assert any('acceptance criteria' in warning.lower() for warning in result.warnings)
+    
+    def test_validate_per_epic_concurrency_for_all_epics(self, valid_work_index_data):
+        """Test Bug 1: validate_work_index should check per-EPIC concurrency for ALL EPICs, not just active EPIC.
+        
+        This test verifies that validation checks concurrency limits for all EPICs,
+        not just the active one. If EPIC-2 has stories in_progress that exceed its limit,
+        validation should catch it even if EPIC-2 is not the active EPIC.
+        """
+        # Add EPIC-2 stories to the work index
+        valid_work_index_data['stories'].extend([
+            {
+                "id": "E2-S1",
+                "title": "EPIC-2 story 1",
+                "status": "in_progress",
+                "priority": "P0",
+                "size": "S",
+                "acceptance_criteria": ["Test criteria"]
+            },
+            {
+                "id": "E2-S2",
+                "title": "EPIC-2 story 2",
+                "status": "in_progress",
+                "priority": "P0",
+                "size": "S",
+                "acceptance_criteria": ["Test criteria"]
+            }
+        ])
+        
+        # EPIC-2 only allows 1 agent, but we have 2 stories in_progress
+        # Active EPIC is EPIC-1, but validation should still catch EPIC-2's violation
+        result = validate_work_index(valid_work_index_data)
+        assert result.is_valid is False
+        assert any('EPIC-2' in error and 'Too many in_progress' in error for error in result.errors)
 
 
 class TestRegenerateMarkdown:
@@ -363,6 +396,43 @@ class TestAssignStory:
         story = get_story_by_id(valid_work_index_data, "E1-S1")
         assert story['status'] == "in_progress"
         assert story.get('assigned_to') == "agent-1"
+    
+    def test_assign_checks_per_epic_concurrency_for_story_epic(self, valid_work_index_data):
+        """Test Bug 2: assign_story should check per-EPIC concurrency for the story's EPIC, not just active EPIC.
+        
+        This test verifies that when assigning a story from a non-active EPIC,
+        the function checks the concurrency limit for that EPIC, not just the active EPIC.
+        """
+        # Set allow_multi_epic to True so we can work on multiple EPICs
+        valid_work_index_data['concurrency']['allow_multi_epic'] = True
+        
+        # Add EPIC-2 stories - one already in_progress, one ready to assign
+        valid_work_index_data['stories'].extend([
+            {
+                "id": "E2-S1",
+                "title": "EPIC-2 story 1",
+                "status": "in_progress",
+                "priority": "P0",
+                "size": "S",
+                "acceptance_criteria": ["Test criteria"]
+            },
+            {
+                "id": "E2-S2",
+                "title": "EPIC-2 story 2",
+                "status": "ready",
+                "priority": "P0",
+                "size": "S",
+                "acceptance_criteria": ["Test criteria"]
+            }
+        ])
+        
+        # EPIC-2 only allows 1 agent, and we already have E2-S1 in_progress
+        # Active EPIC is EPIC-1, but assigning E2-S2 should check EPIC-2's limit
+        # Try to assign a second EPIC-2 story - should fail
+        success, message = assign_story(valid_work_index_data, "E2-S2", "agent-1")
+        assert success is False
+        assert "EPIC-2" in message or "concurrency limit" in message.lower()
+        assert "1" in message  # Should mention the limit (1 agent allowed)
 
 
 class TestGetStoryById:

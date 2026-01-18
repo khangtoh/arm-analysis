@@ -131,28 +131,32 @@ def validate_work_index(data: Dict) -> ValidationResult:
             warnings.append(f"Story {story_id} has no acceptance criteria")
     
     # Check concurrency limits: count in_progress stories per EPIC
-    active_epic_id = data.get('active_epic', {}).get('id')
-    if active_epic_id:
-        epic_agents_allowed = next(
-            (epic.get('agents_allowed', 0) for epic in data.get('epics', []) 
-             if epic.get('id') == active_epic_id),
-            0
-        )
-        # Extract EPIC number from active_epic_id (e.g., "EPIC-1" -> "1")
-        active_epic_num = active_epic_id.split('-')[1] if '-' in active_epic_id else None
-        active_epic_prefix = f"E{active_epic_num}" if active_epic_num else None
+    # Bug Fix: Check ALL EPICs, not just the active EPIC
+    for epic in data.get('epics', []):
+        epic_id = epic.get('id')
+        epic_agents_allowed = epic.get('agents_allowed', 0)
         
-        # Count only in_progress stories that belong to the active EPIC
+        if not epic_id:
+            continue
+        
+        # Extract EPIC number from epic_id (e.g., "EPIC-1" -> "1")
+        epic_num = epic_id.split('-')[1] if '-' in epic_id else None
+        epic_prefix = f"E{epic_num}" if epic_num else None
+        
+        if not epic_prefix:
+            continue
+        
+        # Count in_progress stories that belong to this EPIC
         # Story IDs like "E1-S1" have prefix "E1" which corresponds to "EPIC-1"
         in_progress_count = sum(
             1 for story in data.get('stories', [])
             if story.get('status') == 'in_progress' and
-            active_epic_prefix and
-            story.get('id', '').split('-')[0] == active_epic_prefix
+            story.get('id', '').split('-')[0] == epic_prefix
         )
+        
         if in_progress_count >= epic_agents_allowed:
             errors.append(
-                f"Too many in_progress stories ({in_progress_count}) for EPIC {active_epic_id} "
+                f"Too many in_progress stories ({in_progress_count}) for EPIC {epic_id} "
                 f"(allowed: {epic_agents_allowed})"
             )
     
@@ -533,42 +537,41 @@ def assign_story(data: Dict, story_id: str, agent_id: Optional[str] = None) -> T
         )
     
     # Check per-EPIC concurrency limit
-    active_epic_id = data.get('active_epic', {}).get('id')
-    if active_epic_id:
-        # Extract EPIC identifier from story ID (e.g., "E1-S1" -> "E1" maps to "EPIC-1")
-        story_epic_prefix = story_id.split('-')[0] if '-' in story_id else None
+    # Bug Fix: Check the EPIC that the story belongs to, not just the active EPIC
+    # Extract EPIC identifier from story ID (e.g., "E1-S1" -> "E1" maps to "EPIC-1")
+    story_epic_prefix = story_id.split('-')[0] if '-' in story_id else None
+    
+    # Map story prefix to EPIC ID (e.g., "E1" -> "EPIC-1", "E2" -> "EPIC-2")
+    # Story IDs like "E1-S1" have prefix "E1" which corresponds to "EPIC-1"
+    story_epic_id = None
+    if story_epic_prefix and story_epic_prefix.startswith('E'):
+        try:
+            epic_num = story_epic_prefix[1:]  # Extract number after 'E'
+            story_epic_id = f"EPIC-{epic_num}"
+        except (ValueError, IndexError):
+            pass
+    
+    # Check concurrency limit for the EPIC that this story belongs to
+    if story_epic_id:
+        epic_agents_allowed = next(
+            (epic.get('agents_allowed', 0) for epic in data.get('epics', [])
+             if epic.get('id') == story_epic_id),
+            0
+        )
         
-        # Map story prefix to EPIC ID (e.g., "E1" -> "EPIC-1", "E2" -> "EPIC-2")
-        # Story IDs like "E1-S1" have prefix "E1" which corresponds to "EPIC-1"
-        story_epic_id = None
-        if story_epic_prefix and story_epic_prefix.startswith('E'):
-            try:
-                epic_num = story_epic_prefix[1:]  # Extract number after 'E'
-                story_epic_id = f"EPIC-{epic_num}"
-            except (ValueError, IndexError):
-                pass
+        # Count in_progress stories for this EPIC (stories with same EPIC prefix)
+        epic_in_progress = sum(
+            1 for s in data.get('stories', [])
+            if s.get('status') == 'in_progress' and 
+            s.get('id', '').split('-')[0] == story_epic_prefix
+        )
         
-        # Only check if this story belongs to the active EPIC
-        if story_epic_id and story_epic_id == active_epic_id:
-            epic_agents_allowed = next(
-                (epic.get('agents_allowed', 0) for epic in data.get('epics', [])
-                 if epic.get('id') == active_epic_id),
-                0
+        if epic_in_progress >= epic_agents_allowed:
+            return False, (
+                f"Cannot assign: EPIC {story_epic_id} concurrency limit reached "
+                f"({epic_in_progress}/{epic_agents_allowed}). "
+                f"Wait for a story in this EPIC to complete."
             )
-            
-            # Count in_progress stories for this EPIC (stories with same EPIC prefix)
-            epic_in_progress = sum(
-                1 for s in data.get('stories', [])
-                if s.get('status') == 'in_progress' and 
-                s.get('id', '').split('-')[0] == story_epic_prefix
-            )
-            
-            if epic_in_progress >= epic_agents_allowed:
-                return False, (
-                    f"Cannot assign: EPIC {active_epic_id} concurrency limit reached "
-                    f"({epic_in_progress}/{epic_agents_allowed}). "
-                    f"Wait for a story in this EPIC to complete."
-                )
     
     # All checks passed - assign the story
     story['status'] = 'in_progress'
