@@ -138,9 +138,17 @@ def validate_work_index(data: Dict) -> ValidationResult:
              if epic.get('id') == active_epic_id),
             0
         )
+        # Extract EPIC number from active_epic_id (e.g., "EPIC-1" -> "1")
+        active_epic_num = active_epic_id.split('-')[1] if '-' in active_epic_id else None
+        active_epic_prefix = f"E{active_epic_num}" if active_epic_num else None
+        
+        # Count only in_progress stories that belong to the active EPIC
+        # Story IDs like "E1-S1" have prefix "E1" which corresponds to "EPIC-1"
         in_progress_count = sum(
             1 for story in data.get('stories', [])
-            if story.get('status') == 'in_progress'
+            if story.get('status') == 'in_progress' and
+            active_epic_prefix and
+            story.get('id', '').split('-')[0] == active_epic_prefix
         )
         if in_progress_count > epic_agents_allowed:
             errors.append(
