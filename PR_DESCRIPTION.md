@@ -48,6 +48,13 @@ This PR introduces a comprehensive validation and enforcement system for the age
 ### Bug Fixes
 - 🐛 **Fixed**: `assign_story` now properly enforces concurrency limits even when current state is valid
 - 🐛 **Fixed**: EPIC ID mapping for story assignment (E1 → EPIC-1)
+- 🐛 **Fixed**: `validate_work_index` and `assign_story` now use consistent limit checks (>= instead of >)
+- 🐛 **Fixed**: `allow_multi_epic` constraint now enforced in both validation and assignment
+- 🐛 **Fixed**: `check_story_conflicts` only counts added lines for in_progress stories
+- 🐛 **Fixed**: `sync_git_tags` now checks both tags independently
+- 🐛 **Fixed**: Per-EPIC concurrency check now properly filters by active EPIC ID
+- 🐛 **Fixed**: `assign_story` now returns value and sets `assigned_to` field correctly
+- 🐛 **Fixed**: Restored streamlit and plotly dependencies
 
 ## Testing
 
