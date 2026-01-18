@@ -167,6 +167,26 @@ def validate_work_index(data: Dict) -> ValidationResult:
             f"(max: {max_agents})"
         )
     
+    # Check allow_multi_epic constraint: if false, only active EPIC stories can be in_progress
+    allow_multi_epic = concurrency.get('allow_multi_epic', True)
+    if not allow_multi_epic and active_epic_id:
+        # Extract EPIC number from active_epic_id (e.g., "EPIC-1" -> "1")
+        active_epic_num = active_epic_id.split('-')[1] if '-' in active_epic_id else None
+        active_epic_prefix = f"E{active_epic_num}" if active_epic_num else None
+        
+        # Find any in_progress stories that don't belong to the active EPIC
+        for story in data.get('stories', []):
+            if story.get('status') == 'in_progress':
+                story_id = story.get('id', '')
+                story_epic_prefix = story_id.split('-')[0] if '-' in story_id else None
+                
+                # If story doesn't belong to active EPIC, it's invalid
+                if story_epic_prefix and active_epic_prefix and story_epic_prefix != active_epic_prefix:
+                    errors.append(
+                        f"Story {story_id} is in_progress but belongs to non-active EPIC. "
+                        f"When allow_multi_epic is false, only active EPIC ({active_epic_id}) stories can be in_progress."
+                    )
+    
     # Validate product version format
     product_version = data.get('product_version', {})
     version_current = product_version.get('current', '')
@@ -469,6 +489,32 @@ def assign_story(data: Dict, story_id: str, agent_id: Optional[str] = None) -> T
     
     if current_status == 'done':
         return False, f"Story {story_id} is already done"
+    
+    # Check allow_multi_epic constraint: if false, only active EPIC stories can be assigned
+    concurrency = data.get('concurrency', {})
+    allow_multi_epic = concurrency.get('allow_multi_epic', True)
+    active_epic_id = data.get('active_epic', {}).get('id')
+    
+    if not allow_multi_epic and active_epic_id:
+        # Extract EPIC identifier from story ID (e.g., "E1-S1" -> "E1" maps to "EPIC-1")
+        story_epic_prefix = story_id.split('-')[0] if '-' in story_id else None
+        
+        # Map story prefix to EPIC ID (e.g., "E1" -> "EPIC-1", "E2" -> "EPIC-2")
+        story_epic_id = None
+        if story_epic_prefix and story_epic_prefix.startswith('E'):
+            try:
+                epic_num = story_epic_prefix[1:]  # Extract number after 'E'
+                story_epic_id = f"EPIC-{epic_num}"
+            except (ValueError, IndexError):
+                pass
+        
+        # If story doesn't belong to active EPIC, reject assignment
+        if story_epic_id and story_epic_id != active_epic_id:
+            return False, (
+                f"Cannot assign: Story {story_id} belongs to EPIC {story_epic_id}, "
+                f"but active EPIC is {active_epic_id}. "
+                f"When allow_multi_epic is false, only active EPIC stories can be in_progress."
+            )
     
     # Check concurrency limits BEFORE assignment
     # Count current in_progress stories (excluding the one we're about to assign)
