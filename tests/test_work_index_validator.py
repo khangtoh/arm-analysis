@@ -95,6 +95,14 @@ def valid_work_index_data():
                 "priority": "P0",
                 "size": "S",
                 "acceptance_criteria": ["Users can download/upload CSV"]
+            },
+            {
+                "id": "E1-S3",
+                "title": "Event taxonomy tags",
+                "status": "ready",
+                "priority": "P1",
+                "size": "S",
+                "acceptance_criteria": ["Events can be tagged by type"]
             }
         ]
     }
