@@ -317,6 +317,9 @@ def sync_git_tags(data: Dict, create_missing: bool = False) -> Tuple[bool, List[
     epic_tag = active_epic.get('git_tag', '')
     version_tag = product_version.get('git_tag', '')
     
+    epic_success = True
+    version_success = True
+    
     # Check EPIC tag
     try:
         result = subprocess.run(
@@ -328,22 +331,26 @@ def sync_git_tags(data: Dict, create_missing: bool = False) -> Tuple[bool, List[
         )
         if not result.stdout.strip():
             if create_missing:
-                subprocess.run(
-                    ['git', 'tag', epic_tag],
-                    check=True,
-                    cwd=REPO_ROOT,
-                    capture_output=True
-                )
-                messages.append(f"Created EPIC tag: {epic_tag}")
+                try:
+                    subprocess.run(
+                        ['git', 'tag', epic_tag],
+                        check=True,
+                        cwd=REPO_ROOT,
+                        capture_output=True
+                    )
+                    messages.append(f"Created EPIC tag: {epic_tag}")
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"Could not create EPIC tag: {e}")
+                    messages.append(f"Failed to create EPIC tag {epic_tag}: {e}")
+                    epic_success = False
             else:
                 messages.append(f"EPIC tag {epic_tag} not found at HEAD. Run: git tag {epic_tag}")
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"Could not check/create EPIC tag: {e}")
-        return False, messages
     except Exception as e:
         logger.warning(f"Error checking EPIC tag: {e}")
+        messages.append(f"Error checking EPIC tag {epic_tag}: {e}")
+        epic_success = False
     
-    # Check version tag
+    # Check version tag (always check, even if EPIC tag failed)
     try:
         result = subprocess.run(
             ['git', 'tag', '--points-at', 'HEAD', version_tag],
@@ -354,22 +361,29 @@ def sync_git_tags(data: Dict, create_missing: bool = False) -> Tuple[bool, List[
         )
         if not result.stdout.strip():
             if create_missing:
-                subprocess.run(
-                    ['git', 'tag', version_tag],
-                    check=True,
-                    cwd=REPO_ROOT,
-                    capture_output=True
-                )
-                messages.append(f"Created version tag: {version_tag}")
+                try:
+                    subprocess.run(
+                        ['git', 'tag', version_tag],
+                        check=True,
+                        cwd=REPO_ROOT,
+                        capture_output=True
+                    )
+                    messages.append(f"Created version tag: {version_tag}")
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"Could not create version tag: {e}")
+                    messages.append(f"Failed to create version tag {version_tag}: {e}")
+                    version_success = False
             else:
                 messages.append(f"Version tag {version_tag} not found at HEAD. Run: git tag {version_tag}")
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"Could not check/create version tag: {e}")
-        return False, messages
     except Exception as e:
         logger.warning(f"Error checking version tag: {e}")
+        messages.append(f"Error checking version tag {version_tag}: {e}")
+        version_success = False
     
-    return True, messages
+    # Return success only if both tags were successfully checked/created
+    # (warnings about missing tags when create_missing=False are not failures)
+    overall_success = epic_success and version_success
+    return overall_success, messages
 
 
 def get_git_diff(staged: bool = False) -> str:
