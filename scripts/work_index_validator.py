@@ -150,7 +150,7 @@ def validate_work_index(data: Dict) -> ValidationResult:
             active_epic_prefix and
             story.get('id', '').split('-')[0] == active_epic_prefix
         )
-        if in_progress_count > epic_agents_allowed:
+        if in_progress_count >= epic_agents_allowed:
             errors.append(
                 f"Too many in_progress stories ({in_progress_count}) for EPIC {active_epic_id} "
                 f"(allowed: {epic_agents_allowed})"
@@ -161,7 +161,7 @@ def validate_work_index(data: Dict) -> ValidationResult:
         1 for story in data.get('stories', [])
         if story.get('status') == 'in_progress'
     )
-    if total_in_progress > max_agents:
+    if total_in_progress >= max_agents:
         errors.append(
             f"Global concurrency limit exceeded: {total_in_progress} in_progress stories "
             f"(max: {max_agents})"
